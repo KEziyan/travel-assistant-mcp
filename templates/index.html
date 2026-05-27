@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 旅游规划助手</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+  color:#333;min-height:100vh;position:relative;
+  background:linear-gradient(135deg,#e8ecf4,#f0f0f8)
+}
+body::before{
+  content:'';position:fixed;top:0;left:0;right:0;bottom:0;
+  background:url('/static/bg.jpg') center/cover no-repeat fixed;
+  opacity:0.5;z-index:0;pointer-events:none
+}
+.container{max-width:960px;margin:0 auto;padding:24px 20px;position:relative;z-index:1}
+h1{text-align:center;margin:0 0 24px;font-size:28px;
+  background:linear-gradient(135deg,#1a73e8,#764ba2);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+h2{font-size:22px;margin-bottom:12px}
+h3{font-size:16px;margin-bottom:8px}
+.form-section{
+  background:rgba(255,255,255,0.88);border-radius:20px;padding:28px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.06);margin-bottom:20px;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)
+}
+.tips-section{background:rgba(255,255,255,0.88);border-radius:20px;padding:24px;margin-bottom:20px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.day-card{background:rgba(255,255,255,0.9);border-radius:20px;margin-bottom:20px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.06);transition:transform 0.2s,box-shadow 0.2s;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.day-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,0.1)}
+.rec-section{background:rgba(255,255,255,0.9);border-radius:20px;padding:24px;margin-bottom:20px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:transform 0.2s}
+.rec-section:hover{transform:translateY(-2px)}
+.map-section{background:rgba(255,255,255,0.9);border-radius:20px;padding:24px;margin-bottom:20px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.form-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.form-group{flex:1;min-width:160px}
+.form-group label{display:block;margin-bottom:5px;font-weight:600;font-size:13px;color:#555}
+.form-group input,.form-group select{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:12px;font-size:14px;transition:border-color 0.2s,box-shadow 0.2s}
+.form-group input:focus{outline:none;border-color:#1a73e8;box-shadow:0 0 0 3px rgba(26,115,232,0.12)}
+.form-group .hint{font-size:11px;color:#999;margin-top:4px}
+.btn-row{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+.btn{
+  padding:10px 20px;border:none;border-radius:12px;font-size:14px;font-weight:600;
+  cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px;
+  justify-content:center
+}
+.btn-primary{background:linear-gradient(135deg,#1a73e8,#4a90d9);color:#fff;flex:1}
+.btn-primary:hover:not(:disabled){box-shadow:0 4px 14px rgba(26,115,232,0.35)}
+.btn-primary:disabled{background:#b0b8c4;cursor:not-allowed;box-shadow:none}
+.btn-test{background:#f0f2f5;color:#555;border:1px solid #ddd}
+.btn-test:hover:not(:disabled){background:#e4e6ea}
+.btn-test:disabled{opacity:0.6;cursor:not-allowed}
+.btn-test.pass{background:#e6f7e6;border-color:#52c41a;color:#52c41a}
+.btn-test.fail{background:#fff0f0;border-color:#ff4d4f;color:#ff4d4f}
+.btn-generate{width:100%;padding:14px;font-size:16px;margin-top:8px}
+.btn-green{background:linear-gradient(135deg,#52c41a,#73d13d);color:#fff;flex:1}
+.btn-green:hover:not(:disabled){box-shadow:0 4px 14px rgba(82,196,26,0.35)}
+.key-row{display:flex;gap:10px;align-items:flex-start}
+.key-row .form-group{flex:1;margin-bottom:0}
+.key-status{font-size:12px;margin-top:4px;min-height:18px}
+.key-status.ok{color:#52c41a}
+.key-status.err{color:#ff4d4f}
+.loading-overlay{
+  display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;
+  background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;flex-direction:column
+}
+.loading-overlay.show{display:flex}
+.loading-spinner{width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:#fff;font-size:16px;margin-top:16px;text-align:center}
+.error-msg{color:#ff4d4f;padding:12px 16px;background:#fff2f0;border-radius:12px;margin-bottom:16px;display:none;border:1px solid #ffccc7}
+.result{display:none}
+/* weather */
+.weather-card{
+  background:linear-gradient(135deg,#1a73e8,#4a90d9);border-radius:20px;padding:24px;
+  margin-bottom:20px;color:#fff;box-shadow:0 4px 20px rgba(26,115,232,0.25)
+}
+.weather-card h3{color:rgba(255,255,255,0.9)}
+.weather-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
+.weather-item{
+  background:rgba(255,255,255,0.15);border-radius:14px;padding:14px;text-align:center;
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);transition:background 0.2s
+}
+.weather-item:hover{background:rgba(255,255,255,0.25)}
+.weather-item .day{font-size:12px;opacity:0.8;margin-bottom:4px}
+.weather-item .date{font-size:11px;opacity:0.6;margin-bottom:6px}
+.weather-item .temp{font-size:20px;font-weight:700;margin:4px 0}
+.weather-item .cond{font-size:13px;opacity:0.85}
+.weather-today{display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.15);margin-bottom:12px}
+.weather-today .big-temp{font-size:42px;font-weight:700;line-height:1}
+.weather-today .today-info{flex:1}
+.weather-today .today-info .today-cond{font-size:16px;margin:4px 0}
+.weather-today .today-info .today-range{font-size:13px;opacity:0.8}
+/* tips */
+.tips-list{list-style:none;padding:0}
+.tips-list li{padding:8px 0;font-size:14px;border-bottom:1px solid rgba(0,0,0,0.05)}
+.tips-list li:last-child{border-bottom:none}
+/* day header colors */
+.day-header{
+  padding:16px 24px;display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:8px
+}
+.day-badge{
+  display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px;color:#fff
+}
+.day-badge .badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);
+  font-size:14px;font-weight:700
+}
+.day-header-right{display:flex;align-items:center;gap:12px;font-size:13px;color:rgba(255,255,255,0.85)}
+/* attractions flow */
+.attractions-flow{display:flex;align-items:stretch;padding:20px 24px;gap:0;flex-wrap:nowrap;overflow-x:auto}
+.flow-step{flex:1;min-width:160px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;padding:0 4px}
+.flow-step .step-num{
+  width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:13px;margin-bottom:8px;color:#fff
+}
+.flow-step .step-time{font-size:11px;color:#999;margin-bottom:4px}
+.flow-step .step-name{font-weight:600;font-size:14px;margin-bottom:2px}
+.flow-step .step-addr{font-size:11px;color:#888;line-height:1.3}
+.flow-step .step-img{width:100%;max-width:160px;height:90px;object-fit:cover;border-radius:10px;margin-bottom:6px;border:1px solid rgba(0,0,0,0.06);transition:transform 0.2s}
+.flow-step .step-img:hover{transform:scale(1.03)}
+.flow-arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 6px;flex-shrink:0;min-width:70px}
+.flow-arrow .arrow-icon{color:#bbb;font-size:18px;line-height:1}
+.flow-arrow .arrow-info{font-size:10px;color:#aaa;text-align:center;line-height:1.3;margin-top:2px}
+@media(max-width:700px){
+  .attractions-flow{flex-direction:column;padding:16px 20px}
+  .flow-step{flex-direction:row;gap:12px;min-width:auto;text-align:left;padding:8px 0;align-items:center}
+  .flow-step .step-num{margin-bottom:0;flex-shrink:0}
+  .flow-step .step-info{flex:1;text-align:left}
+  .flow-arrow{flex-direction:row;padding:4px 0 4px 42px;min-width:auto}
+  .flow-arrow .arrow-icon{transform:rotate(90deg)}
+}
+/* day card footer */
+.day-footer{display:flex;gap:12px;padding:12px 24px 16px;border-top:1px solid rgba(0,0,0,0.05)}
+.day-footer a{
+  flex:1;text-align:center;padding:8px;border-radius:10px;font-size:13px;
+  text-decoration:none;font-weight:500;transition:all 0.2s
+}
+.day-footer .btn-nav{background:#f0f5ff;color:#1a73e8}
+.day-footer .btn-nav:hover{background:#e0edff}
+.day-footer .btn-taxi{background:#fff7e6;color:#fa8c16}
+.day-footer .btn-taxi:hover{background:#fff0d6}
+/* reco cards */
+.reco-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:12px}
+.reco-card{
+  background:rgba(0,0,0,0.02);border-radius:14px;padding:16px;text-align:center;
+  border:1px solid rgba(0,0,0,0.04);transition:all 0.2s
+}
+.reco-card:hover{background:rgba(0,0,0,0.04);transform:translateY(-1px)}
+.reco-card .r-icon{font-size:32px;margin-bottom:8px}
+.reco-card .reco-img{width:100%;height:120px;object-fit:cover;border-radius:10px;margin-bottom:10px;border:1px solid rgba(0,0,0,0.06)}
+.reco-card .r-name{font-weight:600;font-size:14px;margin-bottom:4px}
+.reco-card .r-addr{font-size:11px;color:#888;line-height:1.3;margin-bottom:4px}
+.reco-card .r-rating{font-size:13px;color:#f90;font-weight:600}
+/* map tabs */
+.map-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.map-tab{
+  padding:8px 16px;border-radius:10px;font-size:13px;font-weight:500;
+  cursor:pointer;transition:all 0.2s;border:1px solid #e8e8e8;background:#fff;color:#666
+}
+.map-tab:hover{border-color:#1a73e8;color:#1a73e8}
+.map-tab.active{background:#1a73e8;color:#fff;border-color:#1a73e8}
+.map-frame-wrap{position:relative;width:100%;border-radius:14px;overflow:hidden;margin-bottom:12px}
+.map-frame-wrap iframe{width:100%;height:500px;border:none;display:block}
+.map-desc{font-size:13px;color:#666;margin-bottom:12px;line-height:1.5}
+.map-btns{display:flex;gap:12px}
+.map-btns a{
+  flex:1;text-align:center;padding:10px;border-radius:12px;font-size:14px;font-weight:600;
+  text-decoration:none;transition:all 0.2s
+}
+.map-btns .btn-nav{background:linear-gradient(135deg,#1a73e8,#4a90d9);color:#fff}
+.map-btns .btn-nav:hover{box-shadow:0 4px 14px rgba(26,115,232,0.3)}
+.map-btns .btn-taxi{background:linear-gradient(135deg,#fa8c16,#ffa940);color:#fff}
+.map-btns .btn-taxi:hover{box-shadow:0 4px 14px rgba(250,140,22,0.3)}
+/* responsive */
+@media(max-width:900px){
+  .container{padding:16px 12px}
+  h1{font-size:24px}
+  .form-row,.btn-row{flex-direction:column}
+  .key-row{flex-direction:column;gap:8px}
+  .key-row .btn{width:100%}
+  .weather-grid{grid-template-columns:repeat(2,1fr)}
+  .reco-grid{grid-template-columns:repeat(2,1fr)}
+  .day-header{flex-direction:column;align-items:flex-start}
+  .map-frame-wrap iframe{height:360px}
+}
+@media(max-width:480px){
+  .weather-grid{grid-template-columns:1fr}
+  .reco-grid{grid-template-columns:1fr}
+  .map-frame-wrap iframe{height:280px}
+}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>✈ AI 旅游规划助手</h1>
+
+<div class="form-section">
+  <form id="planForm" autocomplete="off">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="city">旅游目的地城市</label>
+        <input type="text" id="city" placeholder="例如：北京、杭州、成都" required>
+      </div>
+      <div class="form-group">
+        <label for="startDate">出行日期</label>
+        <input type="date" id="startDate" required>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="days">出行天数</label>
+        <input type="number" id="days" min="1" max="7" value="5" required>
+        <div class="hint">1 ~ 7 天</div>
+      </div>
+      <div class="form-group">
+        <label for="spots">每天游玩景点数</label>
+        <input type="number" id="spots" min="1" max="3" value="3" required>
+        <div class="hint">1 ~ 3 个</div>
+      </div>
+    </div>
+    <div class="key-row">
+      <div class="form-group">
+        <label for="apiKey">高德地图 API Key</label>
+        <input type="text" id="apiKey" placeholder="请输入您的 API Key" required>
+        <div class="key-status" id="keyStatus"></div>
+      </div>
+      <button type="button" class="btn btn-test" id="testKeyBtn" style="margin-top:24px">测试连接</button>
+    </div>
+    <button type="submit" class="btn btn-primary btn-generate" id="generateBtn" disabled>生成旅行方案</button>
+  </form>
+</div>
+
+<div class="error-msg" id="errorMsg"></div>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loadingText">正在规划行程，请稍候...</div>
+</div>
+
+<div id="result"></div>
+</div>
+
+<script>
+const dayColors = [
+  'linear-gradient(135deg,#667eea,#764ba2)',
+  'linear-gradient(135deg,#f093fb,#f5576c)',
+  'linear-gradient(135deg,#4facfe,#00f2fe)',
+  'linear-gradient(135deg,#43e97b,#38f9d7)',
+  'linear-gradient(135deg,#fa709a,#fee140)',
+  'linear-gradient(135deg,#a18cd1,#fbc2eb)',
+  'linear-gradient(135deg,#fccb90,#d57eeb)',
+];
+
+// DOM refs
+const form=document.getElementById('planForm');
+const cityInp=document.getElementById('city');
+const dateInp=document.getElementById('startDate');
+const daysInp=document.getElementById('days');
+const spotsInp=document.getElementById('spots');
+const keyInp=document.getElementById('apiKey');
+const testBtn=document.getElementById('testKeyBtn');
+const genBtn=document.getElementById('generateBtn');
+const errEl=document.getElementById('errorMsg');
+const loadEl=document.getElementById('loadingOverlay');
+const loadText=document.getElementById('loadingText');
+const resultEl=document.getElementById('result');
+const keyStatus=document.getElementById('keyStatus');
+
+let keyTested=false;
+let planData=null;
+
+// Set date defaults
+(function initDate(){
+  const t=new Date();
+  const fmt=d=>{const m=d.getMonth()+1,dd=d.getDate();return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd};
+  const today=fmt(t);
+  t.setDate(t.getDate()+1);
+  dateInp.min=today;
+  dateInp.value=fmt(t);
+})();
+
+// Key input change resets test state
+keyInp.addEventListener('input',()=>{
+  keyTested=false;
+  testBtn.className='btn btn-test';
+  testBtn.textContent='测试连接';
+  testBtn.disabled=false;
+  keyStatus.textContent='';
+  keyStatus.className='key-status';
+  genBtn.disabled=true;
+});
+
+// Test key
+testBtn.addEventListener('click',async()=>{
+  const key=keyInp.value.trim();
+  if(!key){showErr('请输入API Key');return}
+  testBtn.disabled=true;
+  testBtn.textContent='测试中...';
+  keyStatus.textContent='';
+  try{
+    const r=await fetch('/test_key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key})});
+    const d=await r.json();
+    if(d.ok){
+      keyTested=true;
+      testBtn.className='btn btn-test pass';
+      testBtn.textContent='✅ 测试通过';
+      keyStatus.textContent='✓ Key 有效，可生成方案';
+      keyStatus.className='key-status ok';
+      genBtn.disabled=false;
+    }else{
+      testBtn.className='btn btn-test fail';
+      testBtn.textContent='❌ 测试失败';
+      keyStatus.textContent='✗ '+(d.message||'Key无效');
+      keyStatus.className='key-status err';
+    }
+  }catch(e){
+    testBtn.className='btn btn-test fail';
+    testBtn.textContent='❌ 请求失败';
+    keyStatus.textContent='✗ 网络错误';
+    keyStatus.className='key-status err';
+  }finally{
+    testBtn.disabled=false;
+  }
+});
+
+function showErr(m){errEl.textContent=m;errEl.style.display='block'}
+function hideErr(){errEl.style.display='none'}
+function showLoading(t){loadText.textContent=t||'正在规划行程...';loadEl.classList.add('show')}
+function hideLoading(){loadEl.classList.remove('show')}
+
+// Form submit
+form.addEventListener('submit',async(e)=>{
+  e.preventDefault();
+  hideErr();
+
+  if(!keyTested){
+    showErr('请先点击「测试连接」验证 API Key 有效后再生成方案');
+    return;
+  }
+
+  const city=cityInp.value.trim();
+  const date=dateInp.value;
+  const days=parseInt(daysInp.value);
+  const spots=parseInt(spotsInp.value);
+  const key=keyInp.value.trim();
+
+  if(!city){showErr('请输入目的地城市');return}
+  if(days<1||days>7){showErr('出行天数必须在1-7之间');return}
+  if(spots<1||spots>3){showErr('每天景点数必须在1-3之间');return}
+
+  genBtn.disabled=true;
+  showLoading('正在获取数据，请稍候...');
+
+  try{
+    const r=await fetch('/api/plan',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({city,days,spots_per_day:spots,start_date:date,api_key:key})
+    });
+    const d=await r.json();
+    if(d.error){showErr(d.error);return}
+    planData=d;
+    renderPlan(d);
+  }catch(e){
+    showErr('网络错误，请稍后重试');
+  }finally{
+    genBtn.disabled=false;
+    hideLoading();
+  }
+});
+
+// ====== RENDER ======
+function renderPlan(d){
+  let html='<div class="result" style="display:block">';
+
+  // 1. Weather
+  html+=renderWeather(d.weather||[],d.city);
+
+  // 2. Tips
+  if(d.travel_tips&&d.travel_tips.length){
+    html+='<div class="tips-section"><h3>💡 出行小贴士</h3><ul class="tips-list">';
+    d.travel_tips.forEach(t=>{html+=`<li>${t}</li>`});
+    html+='</ul></div>';
+  }
+
+  // 3. Daily plans
+  (d.daily_plans||[]).forEach((day,i)=>{
+    const c=dayColors[i%dayColors.length];
+    html+=renderDayCard(day,i,c);
+  });
+
+  // 4. Food
+  const food=(d.food_recommendations||[]).filter(r=>r.photo&&r.rating);
+  if(food.length){
+    html+='<div class="rec-section"><h3>🍽 美食推荐</h3><div class="reco-grid">';
+    food.slice(0,5).forEach(r=>{
+      html+=`<div class="reco-card">`;
+      if(r.photo)html+=`<img class="reco-img" src="${escAttr(r.photo)}" alt="${esc(r.name)}" loading="lazy" onerror="this.style.display='none'">`;
+      html+=`<div class="r-name">${esc(r.name)}</div>`;
+      if(r.address)html+=`<div class="r-addr">${esc(r.address)}</div>`;
+      if(r.rating)html+=`<div class="r-rating">⭐ ${r.rating}</div>`;
+      html+='</div>';
+    });
+    html+='</div></div>';
+  }
+
+  // 5. Hotel
+  const hotel=(d.hotel_recommendations||[]).filter(r=>r.photo&&r.rating);
+  if(hotel.length){
+    html+='<div class="rec-section"><h3>🏨 住宿推荐</h3><div class="reco-grid">';
+    hotel.slice(0,5).forEach(r=>{
+      html+=`<div class="reco-card">`;
+      if(r.photo)html+=`<img class="reco-img" src="${escAttr(r.photo)}" alt="${esc(r.name)}" loading="lazy" onerror="this.style.display='none'">`;
+      html+=`<div class="r-name">${esc(r.name)}</div>`;
+      if(r.address)html+=`<div class="r-addr">${esc(r.address)}</div>`;
+      if(r.rating)html+=`<div class="r-rating">⭐ ${r.rating}</div>`;
+      html+='</div>';
+    });
+    html+='</div></div>';
+  }
+
+  // 6. Map
+  html+=renderMapSection(d.daily_plans||[]);
+
+  html+='</div>';
+  resultEl.innerHTML=html;
+
+  // Init map tabs
+  initMapTabs();
+}
+
+function renderWeather(wlist,city){
+  if(!wlist||!wlist.length)return'';
+  let html='<div class="weather-card"><h3>🌤 '+esc(city)+' 天气概况</h3>';
+  const t=wlist[0];
+  if(t){
+    html+='<div class="weather-today">';
+    html+=`<div class="big-temp">${t.daytemp||'--'}°</div>`;
+    html+='<div class="today-info">';
+    html+=`<div class="today-cond">${t.dayweather||'--'} / ${t.nightweather||'--'}</div>`;
+    html+=`<div class="today-range">${t.date||''} · 白天 ${t.daytemp||'--'}°C 夜间 ${t.nighttemp||'--'}°C</div>`;
+    html+='</div></div>';
+  }
+  if(wlist.length>1){
+    html+='<div class="weather-grid">';
+    wlist.slice(1).forEach(w=>{
+      html+='<div class="weather-item">';
+      html+=`<div class="day">${w.week||''}</div>`;
+      html+=`<div class="date">${w.date||''}</div>`;
+      html+=`<div class="temp">${w.daytemp||'--'}°/${w.nighttemp||'--'}°</div>`;
+      html+=`<div class="cond">${w.dayweather||''} ${w.nightweather?'/'+w.nightweather:''}</div>`;
+      html+='</div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+function renderDayCard(day,i,gradient){
+  const attrs=day.attractions||[];
+  if(!attrs.length)return'';
+  const colorHex=gradient.match(/#([a-f0-9]{6})/i);
+  const accent=colorHex?'#'+colorHex[1]:'#667eea';
+  let html='<div class="day-card">';
+  html+=`<div class="day-header" style="background:${gradient}">`;
+  html+=`<div class="day-badge"><span class="badge">D${day.day}</span> 第 ${day.day} 天${day.date?' · '+day.date:''}</div>`;
+  html+='<div class="day-header-right">';
+  if(day.weather&&day.weather.date){
+    html+=`<span>${day.weather.dayweather||''} ${day.weather.daytemp||''}°/${day.weather.nighttemp||''}°</span>`;
+  }
+  html+='</div></div>';
+
+  // Attractions flow
+  html+='<div class="attractions-flow">';
+  attrs.forEach((p,idx)=>{
+    const colors=['#667eea','#f5576c','#4facfe'];
+    if(idx>0){
+      html+=`<div class="flow-arrow">`;
+      html+=`<div class="arrow-icon">➜</div>`;
+      html+=`<div class="arrow-info">🚗 ${p.travel_min}分钟<br>💰 ${p.taxi_fee}元</div>`;
+      html+=`</div>`;
+    }
+    html+=`<div class="flow-step">`;
+    html+=`<div class="step-num" style="background:${colors[idx%3]}">${idx+1}</div>`;
+    html+=`<div class="step-info">`;
+    if(p.visit_time)html+=`<div class="step-time">⏰ ${p.visit_time}</div>`;
+    if(p.photo){
+      html+=`<img class="step-img" src="${escAttr(p.photo)}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.display='none'">`;
+    }
+    html+=`<div class="step-name">${esc(p.name)}</div>`;
+    if(p.address)html+=`<div class="step-addr">${esc(p.address)}</div>`;
+    html+=`</div></div>`;
+  });
+  html+='</div>';
+
+  // Footer
+  html+=`<div class="day-footer">`;
+  const navUrl=day.map_url||'#';
+  html+=`<a href="${escAttr(navUrl)}" target="_blank" rel="noopener" class="btn-nav">🗺 查看驾车导航</a>`;
+  // taxi url
+  const last=attrs[attrs.length-1];
+  const first=attrs[0];
+  const taxiUrl=`https://uri.amap.com/taxi?from=${first.lng},${first.lat},${encodeURIComponent(first.name)}&to=${last.lng},${last.lat},${encodeURIComponent(last.name)}`;
+  html+=`<a href="${taxiUrl}" target="_blank" rel="noopener" class="btn-taxi">🚕 一键打车</a>`;
+  html+='</div></div>';
+  return html;
+}
+
+function renderMapSection(plans){
+  if(!plans||!plans.length)return'';
+  const valid=plans.filter(p=>p.map_url);
+  if(!valid.length)return'';
+  let html='<div class="map-section"><h3>🗺 路线地图</h3>';
+  html+='<div class="map-tabs" id="mapTabs">';
+  valid.forEach((p,i)=>{
+    const names=(p.attractions||[]).map(a=>a.name).join('→');
+    html+=`<div class="map-tab${i===0?' active':''}" data-idx="${i}">第${p.day}天 ${names}</div>`;
+  });
+  html+='</div>';
+  html+='<div class="map-desc" id="mapDesc">';
+  const p0=valid[0];
+  const names0=(p0.attractions||[]).map(a=>a.name).join(' → ');
+  html+=`路线：${names0}</div>`;
+  html+='<div class="map-frame-wrap"><iframe id="mapFrame" src="" loading="lazy"></iframe></div>';
+  html+='<div class="map-btns" id="mapBtns">';
+  html+=`<a href="${escAttr(valid[0].map_url)}" target="_blank" rel="noopener" class="btn-nav">🗺 查看驾车导航</a>`;
+  const p0a=p0.attractions||[];
+  const fst=p0a[0],lst=p0a[p0a.length-1];
+  if(fst&&lst){
+    const tUrl=`https://uri.amap.com/taxi?from=${fst.lng},${fst.lat},${encodeURIComponent(fst.name)}&to=${lst.lng},${lst.lat},${encodeURIComponent(lst.name)}`;
+    html+=`<a href="${tUrl}" target="_blank" rel="noopener" class="btn-taxi">🚕 一键打车</a>`;
+  }
+  html+='</div></div>';
+
+  // Store data for tabs
+  html+=`<script id="mapData" type="application/json">${JSON.stringify(valid.map(p=>({map_url:p.map_url,attractions:p.attractions||[],day:p.day})))}<\/script>`;
+  return html;
+}
+
+function initMapTabs(){
+  const tabs=document.querySelectorAll('.map-tab');
+  const frame=document.getElementById('mapFrame');
+  const desc=document.getElementById('mapDesc');
+  const btns=document.getElementById('mapBtns');
+  let data=[];
+  try{
+    data=JSON.parse(document.getElementById('mapData')?.textContent||'[]');
+  }catch(e){}
+
+  if(!tabs.length||!frame)return;
+  // Set initial
+  if(data.length&&data[0].map_url)frame.src=data[0].map_url;
+
+  tabs.forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      tabs.forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      const idx=parseInt(tab.dataset.idx);
+      const item=data[idx];
+      if(!item)return;
+      if(item.map_url)frame.src=item.map_url;
+      const names=item.attractions.map(a=>a.name).join(' → ');
+      if(desc)desc.textContent='路线：'+names;
+      if(btns){
+        const links=btns.querySelectorAll('a');
+        if(links[0])links[0].href=item.map_url||'#';
+        if(links[1]&&item.attractions.length){
+          const f=item.attractions[0],l=item.attractions[item.attractions.length-1];
+          if(f&&l)links[1].href=`https://uri.amap.com/taxi?from=${f.lng},${f.lat},${encodeURIComponent(f.name)}&to=${l.lng},${l.lat},${encodeURIComponent(l.name)}`;
+        }
+      }
+    });
+  });
+}
+
+function esc(s){if(!s)return'';const d=document.createElement('div');d.appendChild(document.createTextNode(s));return d.innerHTML}
+function escAttr(s){if(!s)return'';return s.replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+</script>
+</body>
+</html>
